@@ -8,9 +8,7 @@ import serial.threaded
 
 from . import comports as _comports
 
-
 logger = logging.getLogger(__name__)
-
 
 # Regular expression to match the following topics the manager listens for:
 #
@@ -35,11 +33,11 @@ CRE_CLIENT = re.compile(r'^serial_device'
 
 class SerialDeviceManager(pmh.BaseMqttReactor):
     def __init__(self, *args, **kwargs):
-        super(SerialDeviceManager, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         # Open devices.
         self.open_devices = {}
 
-    def refresh_comports(self):
+    def refresh_comports(self) -> None:
         # Query list of available serial ports
         comports = _comports().T.to_dict()
         comports_json = json.dumps(comports)
@@ -54,8 +52,8 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
     ###########################################################################
     # MQTT client handlers
     # ====================
-    def on_connect(self, client, userdata, flags, rc):
-        '''
+    def on_connect(self, client, userdata, flags: dict, rc: int) -> None:
+        """
         Callback for when the client receives a ``CONNACK`` response from the
         broker.
 
@@ -95,8 +93,8 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
 
         Subscriptions should be defined in this method to ensure subscriptions
         will be renewed upon reconnecting after a loss of connection.
-        '''
-        super(SerialDeviceManager, self).on_connect(client, userdata, flags, rc)
+        """
+        super().on_connect(client, userdata, flags, rc)
 
         if rc == 0:
             self.mqtt_client.subscribe('serial_device/+/connect')
@@ -105,19 +103,19 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
             self.mqtt_client.subscribe('serial_device/refresh_comports')
             self.refresh_comports()
 
-    def on_message(self, client, userdata, msg):
-        '''
+    def on_message(self, client, userdata, msg) -> None:
+        """
         Callback for when a ``PUBLISH`` message is received from the broker.
-        '''
+        """
         if msg.topic == 'serial_device/refresh_comports':
             self.refresh_comports()
             return
 
         match = CRE_MANAGER.match(msg.topic)
         if match is None:
-            logger.debug('Topic NOT matched: `%s`', msg.topic)
+            logger.debug(f'Topic NOT matched: `{msg.topic}`')
         else:
-            logger.debug('Topic matched: `%s`', msg.topic)
+            logger.debug(f'Topic matched: `{msg.topic}`')
             # Message topic matches command.  Handle request.
             command = match.group('command')
             port = match.group('port')
@@ -130,8 +128,7 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
                 try:
                     request = json.loads(msg.payload)
                 except ValueError as exception:
-                    logger.error('Error decoding "%s (%s)" request: %s',
-                                 command, port, exception)
+                    logger.error(f'Error decoding "{command} ({port})" request: {exception}')
                     return
                 self._serial_connect(port, request)
             elif command == 'close':
@@ -139,15 +136,15 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
 
             #     serial_device/<port>/close  # Request to close connection
 
-    def _publish_status(self, port):
-        '''
+    def _publish_status(self, port: str) -> None:
+        """
         Publish status for specified port.
 
         Parameters
         ----------
         port : str
             Device name/port.
-        '''
+        """
         if port not in self.open_devices:
             status = {}
         else:
@@ -156,31 +153,31 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
                           'timeout', 'xonxoff', 'rtscts', 'dsrdtr')
             status = {k: getattr(device, k) for k in properties}
         status_json = json.dumps(status)
-        self.mqtt_client.publish(topic='serial_device/%s/status' % port,
+        self.mqtt_client.publish(topic=f'serial_device/{port}/status',
                                  payload=status_json, retain=True)
 
-    def _serial_close(self, port):
-        '''
+    def _serial_close(self, port: str) -> None:
+        """
         Handle close request.
 
         Parameters
         ----------
         port : str
             Device name/port.
-        '''
+        """
         if port in self.open_devices:
             try:
                 self.open_devices[port].close()
             except Exception as exception:
-                logger.error('Error closing device `%s`: %s', port, exception)
+                logger.error(f'Error closing device `{port}`: {exception}')
                 return
         else:
-            logger.debug('Device not connected to `%s`', port)
+            logger.debug(f'Device not connected to `{port}`')
             self._publish_status(port)
             return
 
-    def _serial_connect(self, port, request):
-        '''
+    def _serial_connect(self, port: str, request: dict) -> None:
+        """
         Handle connection request.
 
         Parameters
@@ -188,7 +185,7 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
         port : str
             Device name/port.
         request : dict
-        '''
+        """
         #     baudrate : int
         #         Baud rate such as 9600 or 115200 etc.
         #     bytesize : str, optional
@@ -223,26 +220,23 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
         #         Default: ``False``
         command = 'connect'
         if port in self.open_devices:
-            logger.debug('Already connected to: `%s`', port)
+            logger.debug(f'Already connected to: `{port}`')
             self._publish_status(port)
             return
 
         # TODO Write JSON schema definition for valid connect request.
         if 'baudrate' not in request:
-            logger.error('Invalid `%s` request: `baudrate` must be '
-                         'specified.', command)
+            logger.error(f'Invalid `{command}` request: `baudrate` must be specified.')
             return
         if 'bytesize' in request:
             try:
                 bytesize = getattr(serial, request['bytesize'])
                 if not bytesize in serial.Serial.BYTESIZES:
-                    logger.error('`%s` request: `bytesize` `%s` not '
-                                 'available on current platform.', command,
-                                 request['bytesize'])
+                    logger.error(f"`{command}` request: `bytesize` `{request['bytesize']}` "
+                                 f"not available on current platform.")
                     return
             except AttributeError as exception:
-                logger.error('`%s` request: invalid `bytesize`, `%s`', command,
-                             request['bytesize'])
+                logger.error(f"`{command}` request: invalid `bytesize`, `{request['bytesize']}`")
                 return
         else:
             bytesize = serial.EIGHTBITS
@@ -250,13 +244,11 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
             try:
                 parity = getattr(serial, request['parity'])
                 if not parity in serial.Serial.PARITIES:
-                    logger.error('`%s` request: `parity` `%s` not available '
-                                 'on current platform.', command,
-                                 request['parity'])
+                    logger.error(f"`{command}` request: `parity` `{request['parity']}` "
+                                 f"not available on current platform.")
                     return
             except AttributeError as exception:
-                logger.error('`%s` request: invalid `parity`, `%s`', command,
-                             request['parity'])
+                logger.error(f"`{command}` request: invalid `parity`, `{request['parity']}`")
                 return
         else:
             parity = serial.PARITY_NONE
@@ -264,13 +256,11 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
             try:
                 stopbits = getattr(serial, request['stopbits'])
                 if not stopbits in serial.Serial.STOPBITS:
-                    logger.error('`%s` request: `stopbits` `%s` not '
-                                 'available on current platform.', command,
-                                 request['stopbits'])
+                    logger.error(f"`{command}` request: `stopbits` `{request['stopbits']}` "
+                                 f"not available on current platform.")
                     return
             except AttributeError as exception:
-                logger.error('`%s` request: invalid `stopbits`, `%s`', command,
-                             request['stopbits'])
+                logger.error(f"`{command}` request: invalid `stopbits`, `{request['stopbits']}`")
                 return
         else:
             stopbits = serial.STOPBITS_ONE
@@ -281,7 +271,7 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
             rtscts = bool(request.get('rtscts'))
             dsrdtr = bool(request.get('dsrdtr'))
         except TypeError as exception:
-            logger.error('`%s` request: %s', command, exception)
+            logger.error(f'`{command}` request: {exception}')
             return
 
         try:
@@ -301,8 +291,7 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
 
                 def data_received(self, data):
                     """Called with snippets received from the serial port"""
-                    parent.mqtt_client.publish(topic='serial_device/%s/received'
-                                               % self.PORT, payload=data)
+                    parent.mqtt_client.publish(topic=f'serial_device/{self.PORT}/received', payload=data)
 
                 def connection_lost(self, exception):
                     """\
@@ -310,50 +299,48 @@ class SerialDeviceManager(pmh.BaseMqttReactor):
                     otherwise.
                     """
                     if isinstance(exception, Exception):
-                        logger.error('Connection to port `%s` lost: %s',
-                                     self.PORT, exception)
+                        logger.error(f'Connection to port `{self.PORT}` lost: {exception}')
                     del parent.open_devices[self.PORT]
                     parent._publish_status(self.PORT)
 
-            reader_thread = serial.threaded.ReaderThread(device,
-                                                         PassThroughProtocol)
+            reader_thread = serial.threaded.ReaderThread(device, PassThroughProtocol)
             reader_thread.start()
             reader_thread.connect()
         except Exception as exception:
-            logger.error('`%s` request: %s', command, exception)
+            logger.error(f'`{command}` request: {exception}')
             return
 
-    def _serial_send(self, port, payload):
-        '''
+    def _serial_send(self, port: str, payload: bytes) -> None:
+        """
         Send data to connected device.
 
         Parameters
         ----------
-        port : str
+        port: str
             Device name/port.
-        payload : bytes
-            Payload to send to device.
-        '''
+        payload: bytes
+            Payload to send to a device.
+        """
         if port not in self.open_devices:
             # Not connected to device.
-            logger.error('Error sending data: `%s` not connected', port)
+            logger.error(f'Error sending data: `{port}` not connected')
             self._publish_status(port)
         else:
             try:
                 device = self.open_devices[port]
                 device.write(payload)
-                logger.debug('Sent data to `%s`', port)
+                logger.debug(f'Sent data to `{port}`')
             except Exception as exception:
-                logger.error('Error sending data to `%s`: %s', port, exception)
+                logger.error(f'Error sending data to `{port}`: {exception}')
 
-    def __enter__(self):
+    def __enter__(self) -> 'SerialDeviceManager':
         return self
 
-    def __exit__(self, type_, value, traceback):
+    def __exit__(self, type_, value, traceback) -> None:
         logger.info('Shutting down, closing all open ports.')
         for port_i in list(self.open_devices.keys()):
             self._serial_close(port_i)
-        super(SerialDeviceManager, self).stop()
+        super().stop()
 
 
 if __name__ == '__main__':

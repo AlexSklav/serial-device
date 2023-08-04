@@ -3,8 +3,10 @@
 {% else %}
 {% set GIT_VERSION = GIT_DESCRIBE_TAG[1:] %}
 {% endif %}
+{% set PKG_NAME = 'serial-device' %}
+{% set MODULE_NAME = PKG_NAME.replace('-', '_') %}
 package:
-  name: serial-device
+  name: {{ PKG_NAME }}
   version: {{ GIT_VERSION }}
 
 build:
@@ -12,25 +14,27 @@ build:
   # number. If you do not include this key, it defaults to 0.
   number: 0
   script: python setup.py install --single-version-externally-managed --record record.txt
-  #: .. versionadded:: 0.10
   noarch: python
 
 requirements:
   build:
-    - paho-mqtt-helpers >=0.4
-    - pandas >=0.18
-    - path_helpers >=0.7
+    - python >=3.8
+    - paho-mqtt-helpers
+    - pandas
     - pyserial
-    - python
-    #: .. versionadded:: 0.10
     - versioneer
+    - six
 
   run:
-    - paho-mqtt-helpers >=0.4
-    - pandas >=0.18
-    - path_helpers >=0.7
+    - python >=3.8
+    - paho-mqtt-helpers
+    - pandas
     - pyserial
-    - python
+    - six
+
+test:
+  imports:
+    - {{ MODULE_NAME }}
 
 # source will be downloaded prior to filling in jinja templates
 # Example assumes that this folder has setup.py in it
