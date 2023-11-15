@@ -23,20 +23,25 @@ requirements:
     - pandas
     - pyserial
     - versioneer
-    - six
 
   run:
     - python >=3.8
     - paho-mqtt-helpers
     - pandas
     - pyserial
-    - six
 
 test:
   imports:
     - {{ MODULE_NAME }}
 
+about:
+  home: https://github.com/sci-bots/{{ PKG_NAME }}
+  summary: Simple, cross-platform interface for interacting with devices through a serial-port.
+  license: GPLv2
+
+
 # source will be downloaded prior to filling in jinja templates
 # Example assumes that this folder has setup.py in it
 source:
-  git_url: ../
+#  git_url: ../
+  path: ..

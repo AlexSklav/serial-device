@@ -2,3 +2,5 @@ include README.md
 include setup.py
 include versioneer.py
 include serial_device/_version.py
+exclude .DS_Store
+recursive-exclude serial_device .DS_Store

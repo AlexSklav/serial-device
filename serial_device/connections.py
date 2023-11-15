@@ -1,10 +1,9 @@
 # -*- encoding: utf-8 -*-
 import serial
-import six.moves
+import platform
 
 import pandas as pd
 
-import platform
 from time import sleep
 from serial.tools.list_ports import comports as list_comports
 from typing import Optional, Union, List
@@ -94,7 +93,7 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
     df_comports = df_comports.hardware_id.str.lower().str.extract(pattern, expand=True)
 
     if vid_pid is not None:
-        if isinstance(vid_pid, six.string_types):
+        if isinstance(vid_pid, str):
             # Single USB vendor/product ID specified.
             vid_pid = [vid_pid]
 
@@ -165,7 +164,7 @@ class ConnectionError(Exception):
     pass
 
 
-class SerialDevice(object):
+class SerialDevice:
     """
     This class provides a base interface for encapsulating interaction with a
     device connected through a serial-port.
