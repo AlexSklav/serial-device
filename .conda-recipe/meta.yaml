@@ -18,14 +18,14 @@ build:
 
 requirements:
   build:
-    - python >=3.8
+    - python >=3.6
     - paho-mqtt-helpers
     - pandas
     - pyserial
     - versioneer
 
   run:
-    - python >=3.8
+    - python >=3.6
     - paho-mqtt-helpers
     - pandas
     - pyserial
