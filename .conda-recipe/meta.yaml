@@ -23,6 +23,7 @@ requirements:
     - pandas
     - pyserial
     - versioneer
+    - setuptools
 
   run:
     - python >=3.6
