@@ -22,8 +22,22 @@ def _comports(pattern: Optional[str] = None) -> pd.DataFrame:
         list_comports = lsp.comports()
     else:
         list_comports = lsp.grep(pattern)
-    return pd.DataFrame(map(list, list_comports),
-                        columns=['port', 'descriptor', 'hardware_id']).set_index('port')
+    
+    columns = ['port', 'descriptor', 'hardware_id', 'manufacturer', 'vid', 'pid']
+    
+    info = []
+    for port_info in list_comports:
+        vid = port_info.vid
+        if vid is not None:
+            vid = f'{vid:04X}'
+        pid = port_info.pid
+        if pid is not None:
+            pid = f'{pid:04X}'
+        info.append([port_info.device, port_info.description, 
+                     port_info.hwid, port_info.manufacturer, 
+                     vid, pid])
+    
+    return pd.DataFrame(info, columns=columns).set_index('port')
 
 
 def test_connection(port: str, baud_rate: Optional[int] = None) -> bool:
@@ -47,7 +61,8 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
              include_all: Optional[bool] = False,
              skip_vid: Optional[List[str]] = None,
              skip_pid: Optional[List[str]] = None,
-             skip_descriptor: Optional[List[str]] = ['usb uart'],
+             skip_descriptor: Optional[List[str]] = None,
+             skip_manufacturer: Optional[List[str]] = ['ftdi'],
              check_available: Optional[bool] = True,
              only_available: Optional[bool] = False) -> pd.DataFrame:
     """
@@ -64,6 +79,8 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
         Skip ports with this USB product ID.
     skip_descriptor: list, optional
         Skip ports with this descriptor.
+    skip_manufacturer: list, optional
+        Skip ports with this manufacturer.
     include_all : bool, optional
         If ``True``, include all available serial ports, but sort rows such
         that ports matching specified USB vendor/product IDs come first.
@@ -106,10 +123,7 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
         df_comports = _comports()
     else:
         df_comports = _comports(pattern)
-
-    ids = df_comports.hardware_id.str.lower().str.extract(pattern, expand=True)
-    df_comports = df_comports.merge(ids, on='port', how='left')
-
+    print(df_comports)
     if skip_vid is not None:
         skip_vid = '|'.join(skip_vid)
         df_comports = df_comports.loc[~df_comports.vid.str.contains(skip_vid, flags=re.IGNORECASE, regex=True)]
@@ -119,7 +133,10 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
     if skip_descriptor is not None:
         skip_descriptor = '|'.join(skip_descriptor)
         df_comports = df_comports.loc[~df_comports.descriptor.str.contains(skip_descriptor, flags=re.IGNORECASE, regex=True)]
-    
+    if skip_manufacturer is not None:
+        skip_manufacturer = '|'.join(skip_manufacturer)
+        df_comports = df_comports.loc[~df_comports.manufacturer.str.contains(skip_manufacturer, flags=re.IGNORECASE, regex=True)]
+        
     if vid_pid is not None:
         if isinstance(vid_pid, str):
             # Single USB vendor/product ID specified.
