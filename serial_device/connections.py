@@ -62,7 +62,7 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
              skip_vid: Optional[List[str]] = None,
              skip_pid: Optional[List[str]] = None,
              skip_descriptor: Optional[List[str]] = None,
-             skip_manufacturer: Optional[List[str]] = ['ftdi'],
+             skip_manufacturer: Optional[List[str]] = None,
              check_available: Optional[bool] = True,
              only_available: Optional[bool] = False) -> pd.DataFrame:
     """
@@ -123,7 +123,7 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
         df_comports = _comports()
     else:
         df_comports = _comports(pattern)
-    print(df_comports)
+
     if skip_vid is not None:
         skip_vid = '|'.join(skip_vid)
         df_comports = df_comports.loc[~df_comports.vid.str.contains(skip_vid, flags=re.IGNORECASE, regex=True)]
@@ -132,10 +132,12 @@ def comports(vid_pid: Optional[Union[str, List[str]]] = None,
         df_comports = df_comports.loc[~df_comports.pid.str.contains(skip_pid, flags=re.IGNORECASE, regex=True)]
     if skip_descriptor is not None:
         skip_descriptor = '|'.join(skip_descriptor)
-        df_comports = df_comports.loc[~df_comports.descriptor.str.contains(skip_descriptor, flags=re.IGNORECASE, regex=True)]
+        df_comports = df_comports.loc[~df_comports.descriptor.str.contains(skip_descriptor,
+                                                                           flags=re.IGNORECASE, regex=True)]
     if skip_manufacturer is not None:
         skip_manufacturer = '|'.join(skip_manufacturer)
-        df_comports = df_comports.loc[~df_comports.manufacturer.str.contains(skip_manufacturer, flags=re.IGNORECASE, regex=True)]
+        df_comports = df_comports.loc[~df_comports.manufacturer.str.contains(skip_manufacturer,
+                                                                             flags=re.IGNORECASE, regex=True)]
         
     if vid_pid is not None:
         if isinstance(vid_pid, str):
